@@ -1,14 +1,28 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+import { useState } from "react";
+import { LoginForm } from "@/components/auth/LoginForm";
+import { OwnerDashboard } from "@/components/dashboard/OwnerDashboard";
+import { WorkerDashboard } from "@/components/dashboard/WorkerDashboard";
 
 const Index = () => {
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-background">
-      <div className="text-center">
-        <h1 className="text-4xl font-bold mb-4">Welcome to Your Blank App</h1>
-        <p className="text-xl text-muted-foreground">Start building your amazing project here!</p>
-      </div>
-    </div>
-  );
+  const [user, setUser] = useState<{ email: string; role: 'owner' | 'worker' } | null>(null);
+
+  const handleLogin = (email: string, role: 'owner' | 'worker') => {
+    setUser({ email, role });
+  };
+
+  const handleLogout = () => {
+    setUser(null);
+  };
+
+  if (!user) {
+    return <LoginForm onLogin={handleLogin} />;
+  }
+
+  if (user.role === 'owner') {
+    return <OwnerDashboard userEmail={user.email} onLogout={handleLogout} />;
+  }
+
+  return <WorkerDashboard userEmail={user.email} onLogout={handleLogout} />;
 };
 
 export default Index;
