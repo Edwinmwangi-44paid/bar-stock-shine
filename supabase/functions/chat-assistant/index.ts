@@ -23,7 +23,7 @@ serve(async (req) => {
       });
     }
 
-    const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
+    const openAIApiKey = Deno.env.get('bar key');
     console.log('OpenAI API Key status:', {
       exists: !!openAIApiKey,
       length: openAIApiKey?.length || 0,
