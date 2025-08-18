@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { SalesEntry } from "./SalesEntry";
 import { TodaysSummary } from "./TodaysSummary";
+import { UpgradeButton } from "../subscription/UpgradeButton";
 import { Package, Users, DollarSign, LogOut, Plus } from "lucide-react";
 
 interface WorkerDashboardProps {
@@ -28,6 +29,7 @@ export const WorkerDashboard = ({ userEmail, onLogout }: WorkerDashboardProps) =
             
             <div className="flex items-center space-x-4">
               <span className="text-sm text-gray-600">{userEmail}</span>
+              <UpgradeButton variant="outline" size="sm" />
               <Button variant="outline" size="sm" onClick={onLogout}>
                 <LogOut className="h-4 w-4 mr-2" />
                 Logout
