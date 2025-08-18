@@ -6,7 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { InventoryManager } from "./InventoryManager";
 import { WeeklyReports } from "./WeeklyReports";
 import { DashboardStats } from "./DashboardStats";
-import { UpgradeButton } from "../subscription/UpgradeButton";
+import { PlanSelector } from "../subscription/PlanSelector";
 import { Package, TrendingUp, Users, DollarSign, LogOut } from "lucide-react";
 
 interface OwnerDashboardProps {
@@ -31,7 +31,7 @@ export const OwnerDashboard = ({ userEmail, onLogout }: OwnerDashboardProps) => 
             
             <div className="flex items-center space-x-4">
               <span className="text-sm text-gray-600">{userEmail}</span>
-              <UpgradeButton variant="outline" size="sm" />
+              <PlanSelector variant="outline" size="sm" />
               <Button variant="outline" size="sm" onClick={onLogout}>
                 <LogOut className="h-4 w-4 mr-2" />
                 Logout

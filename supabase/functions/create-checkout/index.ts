@@ -24,6 +24,14 @@ serve(async (req) => {
     const user = data.user;
     if (!user?.email) throw new Error("User not authenticated or email not available");
 
+    // Get plan from request body
+    const requestBody = await req.json();
+    const { plan } = requestBody;
+    
+    if (!plan || !['pro', 'pro-plus'].includes(plan)) {
+      throw new Error("Invalid plan selected");
+    }
+
     const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY") || "", { apiVersion: "2023-10-16" });
     const customers = await stripe.customers.list({ email: user.email, limit: 1 });
     let customerId;
@@ -31,20 +39,40 @@ serve(async (req) => {
       customerId = customers.data[0].id;
     }
 
+    // Define plan details
+    const planDetails = {
+      'pro': {
+        name: "Pro Plan - Ad Free",
+        amount: 1000, // $10.00
+        interval: "month" as const
+      },
+      'pro-plus': {
+        name: "Pro Plus Plan - Ad Free (6 Months)",
+        amount: 5000, // $50.00
+        interval: "month" as const,
+        interval_count: 6
+      }
+    };
+
+    const selectedPlan = planDetails[plan as keyof typeof planDetails];
+
+    const lineItem: any = {
+      price_data: {
+        currency: "usd",
+        product_data: { name: selectedPlan.name },
+        unit_amount: selectedPlan.amount,
+        recurring: { 
+          interval: selectedPlan.interval,
+          ...(selectedPlan.interval_count && { interval_count: selectedPlan.interval_count })
+        },
+      },
+      quantity: 1,
+    };
+
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
       customer_email: customerId ? undefined : user.email,
-      line_items: [
-        {
-          price_data: {
-            currency: "usd",
-            product_data: { name: "Premium Subscription - Remove Ads" },
-            unit_amount: 999, // $9.99 per month
-            recurring: { interval: "month" },
-          },
-          quantity: 1,
-        },
-      ],
+      line_items: [lineItem],
       mode: "subscription",
       success_url: `${req.headers.get("origin")}/success`,
       cancel_url: `${req.headers.get("origin")}/`,
