@@ -5,6 +5,9 @@ import { OwnerDashboard } from "@/components/dashboard/OwnerDashboard";
 import { WorkerDashboard } from "@/components/dashboard/WorkerDashboard";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { Button } from "@/components/ui/button";
+import { Workflow } from "lucide-react";
+import { Link } from "react-router-dom";
 
 interface UserProfile {
   id: string;
@@ -119,10 +122,34 @@ const Index = () => {
   }
 
   if (profile.role === 'owner') {
-    return <OwnerDashboard userEmail={user.email || ''} onLogout={handleLogout} />;
+    return (
+      <div className="relative">
+        <OwnerDashboard userEmail={user.email || ''} onLogout={handleLogout} />
+        <Link to="/flow-builder">
+          <Button 
+            className="fixed bottom-6 left-6 h-14 w-14 rounded-full shadow-lg hover:shadow-xl transition-all"
+            size="icon"
+          >
+            <Workflow className="h-6 w-6" />
+          </Button>
+        </Link>
+      </div>
+    );
   }
 
-  return <WorkerDashboard userEmail={user.email || ''} onLogout={handleLogout} />;
+  return (
+    <div className="relative">
+      <WorkerDashboard userEmail={user.email || ''} onLogout={handleLogout} />
+      <Link to="/flow-builder">
+        <Button 
+          className="fixed bottom-6 left-6 h-14 w-14 rounded-full shadow-lg hover:shadow-xl transition-all"
+          size="icon"
+        >
+          <Workflow className="h-6 w-6" />
+        </Button>
+      </Link>
+    </div>
+  );
 };
 
 export default Index;
