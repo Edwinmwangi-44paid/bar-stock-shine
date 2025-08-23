@@ -265,6 +265,12 @@ export const firecrawlNode: NodePlugin = {
     if (action === 'custom-api-call') {
       if (!customUrl) throw new Error('API URL is required for Custom API Call');
 
+      const FIRECRAWL_BASE_URL = 'https://api.firecrawl.dev/v1';
+      const target = String(customUrl || '').trim();
+      const targetUrl = target.startsWith('http')
+        ? target
+        : `${FIRECRAWL_BASE_URL}/${target.replace(/^\/+/, '')}`;
+
       // Parse headers
       let requestHeaders: Record<string, string> = {};
       if (headers) {
@@ -290,6 +296,7 @@ export const firecrawlNode: NodePlugin = {
         method: method.toUpperCase(),
         headers: {
           'Content-Type': 'application/json',
+          Authorization: `Bearer ${key}`,
           ...requestHeaders,
         },
       };
@@ -299,9 +306,9 @@ export const firecrawlNode: NodePlugin = {
       }
 
       try {
-        const response = await fetch(customUrl, fetchOptions);
+        const response = await fetch(targetUrl, fetchOptions);
         const responseData = await response.json().catch(() => ({}));
-        
+
         return {
           response: responseData,
           status: response.status,
