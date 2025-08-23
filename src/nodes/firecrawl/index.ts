@@ -53,6 +53,7 @@ export const firecrawlNode: NodePlugin = {
         { label: 'Scrape URL', value: 'scrape-url', description: 'Scrape a single URL' },
         { label: 'Search by ID', value: 'search-by-id', description: 'Find a record by ID across crawled pages' },
         { label: 'Crawl All', value: 'crawl-all', description: 'Crawl all records from a base URL' },
+        { label: 'Custom API Call', value: 'custom-api-call', description: 'Make a custom HTTP request' },
       ],
       description: 'Choose how to interact with your data',
     },
@@ -110,6 +111,42 @@ export const firecrawlNode: NodePlugin = {
       type: 'code',
       language: 'json',
       placeholder: '{\n  "title": "h1",\n  "price": ".price",\n  "description": ".content p"\n}'
+    },
+    {
+      name: 'customUrl',
+      label: 'API URL',
+      type: 'text',
+      description: 'Full API endpoint URL (for Custom API Call)'
+    },
+    {
+      name: 'method',
+      label: 'HTTP Method',
+      type: 'select',
+      default: 'GET',
+      options: [
+        { label: 'GET', value: 'GET' },
+        { label: 'POST', value: 'POST' },
+        { label: 'PUT', value: 'PUT' },
+        { label: 'DELETE', value: 'DELETE' },
+        { label: 'PATCH', value: 'PATCH' },
+      ],
+      description: 'HTTP method for the API call'
+    },
+    {
+      name: 'headers',
+      label: 'Headers (JSON)',
+      type: 'code',
+      language: 'json',
+      placeholder: '{\n  "Content-Type": "application/json",\n  "Authorization": "Bearer your-token"\n}',
+      description: 'HTTP headers as JSON object'
+    },
+    {
+      name: 'body',
+      label: 'Request Body (JSON)',
+      type: 'code',
+      language: 'json',
+      placeholder: '{\n  "key": "value"\n}',
+      description: 'Request body for POST/PUT/PATCH requests'
     }
   ],
   outputs: [
@@ -117,9 +154,11 @@ export const firecrawlNode: NodePlugin = {
     { name: 'record', type: 'object', description: 'Single matched record (search/scrape)' },
     { name: 'total', type: 'number', description: 'Total pages processed' },
     { name: 'fullData', type: 'array', description: 'Raw Firecrawl response data' },
+    { name: 'response', type: 'object', description: 'API response data (for custom API calls)' },
+    { name: 'status', type: 'number', description: 'HTTP status code' },
   ],
   async execute(inputs) {
-    const { action, apiKey, url, baseUrl, limit = 50, idSelector, recordId, fieldsMapping } = inputs;
+    const { action, apiKey, url, baseUrl, limit = 50, idSelector, recordId, fieldsMapping, customUrl, method = 'GET', headers, body } = inputs;
 
     // Resolve API key
     const envVars = getEnvVars();
@@ -221,6 +260,57 @@ export const firecrawlNode: NodePlugin = {
       }
 
       return { record: found, records, total: pages.length, fullData: pages } as any;
+    }
+
+    if (action === 'custom-api-call') {
+      if (!customUrl) throw new Error('API URL is required for Custom API Call');
+
+      // Parse headers
+      let requestHeaders: Record<string, string> = {};
+      if (headers) {
+        try {
+          requestHeaders = typeof headers === 'string' ? JSON.parse(headers) : headers;
+        } catch (e: any) {
+          throw new Error(`Invalid Headers JSON: ${e.message}`);
+        }
+      }
+
+      // Parse body
+      let requestBody: any = undefined;
+      if (body && ['POST', 'PUT', 'PATCH'].includes(method.toUpperCase())) {
+        try {
+          requestBody = typeof body === 'string' ? JSON.parse(body) : body;
+        } catch (e: any) {
+          throw new Error(`Invalid Body JSON: ${e.message}`);
+        }
+      }
+
+      // Make the API call
+      const fetchOptions: RequestInit = {
+        method: method.toUpperCase(),
+        headers: {
+          'Content-Type': 'application/json',
+          ...requestHeaders,
+        },
+      };
+
+      if (requestBody !== undefined) {
+        fetchOptions.body = JSON.stringify(requestBody);
+      }
+
+      try {
+        const response = await fetch(customUrl, fetchOptions);
+        const responseData = await response.json().catch(() => ({}));
+        
+        return {
+          response: responseData,
+          status: response.status,
+          record: responseData,
+          fullData: [responseData],
+        };
+      } catch (error: any) {
+        throw new Error(`API call failed: ${error.message}`);
+      }
     }
 
     throw new Error(`Unknown action: ${action}`);
