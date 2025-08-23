@@ -114,9 +114,9 @@ export const firecrawlNode: NodePlugin = {
     },
     {
       name: 'customUrl',
-      label: 'API URL',
+      label: 'Endpoint or Full URL',
       type: 'text',
-      description: 'Full API endpoint URL (for Custom API Call)'
+      description: 'Relative path (e.g., /scrape) or full URL. If a path is provided, it will use https://api.firecrawl.dev/v1 as base.'
     },
     {
       name: 'method',
@@ -147,6 +147,13 @@ export const firecrawlNode: NodePlugin = {
       language: 'json',
       placeholder: '{\n  "key": "value"\n}',
       description: 'Request body for POST/PUT/PATCH requests'
+    },
+    {
+      name: 'timeout',
+      label: 'Timeout (seconds)',
+      type: 'number',
+      default: 30,
+      description: 'Request timeout in seconds (default: 30)'
     }
   ],
   outputs: [
@@ -158,7 +165,7 @@ export const firecrawlNode: NodePlugin = {
     { name: 'status', type: 'number', description: 'HTTP status code' },
   ],
   async execute(inputs) {
-    const { action, apiKey, url, baseUrl, limit = 50, idSelector, recordId, fieldsMapping, customUrl, method = 'GET', headers, body } = inputs;
+    const { action, apiKey, url, baseUrl, limit = 50, idSelector, recordId, fieldsMapping, customUrl, method = 'GET', headers, body, timeout = 30 } = inputs;
 
     // Resolve API key
     const envVars = getEnvVars();
@@ -185,10 +192,17 @@ export const firecrawlNode: NodePlugin = {
     const app = new FirecrawlApp({ apiKey: key });
 
     const crawl = async (targetUrl: string, maxPages: number) => {
-      const res: any = await app.crawlUrl(targetUrl, {
+      const timeoutMs = Number(timeout) * 1000;
+      const crawlPromise = app.crawlUrl(targetUrl, {
         limit: Number(maxPages) || 50,
         scrapeOptions: { formats: ['html'] },
       } as any);
+
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error(`Request timeout after ${timeout} seconds`)), timeoutMs);
+      });
+
+      const res: any = await Promise.race([crawlPromise, timeoutPromise]);
       if (!res?.success) {
         const err = (res && (res.error || res.message)) || 'Failed to crawl';
         throw new Error(`Firecrawl error: ${err}`);
@@ -291,7 +305,10 @@ export const firecrawlNode: NodePlugin = {
         }
       }
 
-      // Make the API call
+      // Make the API call with timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), Number(timeout) * 1000);
+
       const fetchOptions: RequestInit = {
         method: method.toUpperCase(),
         headers: {
@@ -299,6 +316,7 @@ export const firecrawlNode: NodePlugin = {
           Authorization: `Bearer ${key}`,
           ...requestHeaders,
         },
+        signal: controller.signal,
       };
 
       if (requestBody !== undefined) {
@@ -307,6 +325,7 @@ export const firecrawlNode: NodePlugin = {
 
       try {
         const response = await fetch(targetUrl, fetchOptions);
+        clearTimeout(timeoutId);
         const responseData = await response.json().catch(() => ({}));
 
         return {
@@ -316,6 +335,10 @@ export const firecrawlNode: NodePlugin = {
           fullData: [responseData],
         };
       } catch (error: any) {
+        clearTimeout(timeoutId);
+        if (error.name === 'AbortError') {
+          throw new Error(`Request timeout after ${timeout} seconds`);
+        }
         throw new Error(`API call failed: ${error.message}`);
       }
     }
